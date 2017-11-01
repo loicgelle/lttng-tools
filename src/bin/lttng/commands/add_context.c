@@ -84,6 +84,13 @@ enum context_type {
 	CONTEXT_PREEMPTIBLE  = 17,
 	CONTEXT_NEED_RESCHEDULE = 18,
 	CONTEXT_MIGRATABLE   = 19,
+	CONTEXT_CGROUP_NS    = 20,
+	CONTEXT_IPC_NS       = 21,
+	CONTEXT_MNT_NS       = 22,
+	CONTEXT_NET_NS       = 23,
+	CONTEXT_PID_NS       = 24,
+	CONTEXT_USER_NS      = 25,
+	CONTEXT_UTS_NS       = 26,
 };
 
 /*
@@ -240,6 +247,13 @@ const struct ctx_opts {
 	{ "preemptible", CONTEXT_PREEMPTIBLE },
 	{ "need_reschedule", CONTEXT_NEED_RESCHEDULE },
 	{ "migratable", CONTEXT_MIGRATABLE },
+	{ "cgroup_ns", CONTEXT_CGROUP_NS },
+	{ "ipc_ns", CONTEXT_IPC_NS },
+	{ "mnt_ns", CONTEXT_MNT_NS },
+	{ "net_ns", CONTEXT_NET_NS },
+	{ "pid_ns", CONTEXT_PID_NS },
+	{ "user_ns", CONTEXT_USER_NS },
+	{ "uts_ns", CONTEXT_UTS_NS },
 
 	/* Perf options */
 

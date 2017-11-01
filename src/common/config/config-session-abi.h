@@ -132,5 +132,12 @@ extern const char * const config_event_context_interruptible;
 extern const char * const config_event_context_preemptible;
 extern const char * const config_event_context_need_reschedule;
 extern const char * const config_event_context_migratable;
+extern const char * const config_event_context_cgroup_ns;
+extern const char * const config_event_context_ipc_ns;
+extern const char * const config_event_context_mnt_ns;
+extern const char * const config_event_context_net_ns;
+extern const char * const config_event_context_pid_ns;
+extern const char * const config_event_context_user_ns;
+extern const char * const config_event_context_uts_ns;
 
 #endif /* CONFIG_SESSION_INTERNAL_H */
