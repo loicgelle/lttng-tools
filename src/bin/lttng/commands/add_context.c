@@ -91,6 +91,18 @@ enum context_type {
 	CONTEXT_PID_NS       = 24,
 	CONTEXT_USER_NS      = 25,
 	CONTEXT_UTS_NS       = 26,
+	CONTEXT_UID          = 27,
+	CONTEXT_EUID         = 28,
+	CONTEXT_SUID         = 29,
+	CONTEXT_GID          = 30,
+	CONTEXT_EGID         = 31,
+	CONTEXT_SGID         = 32,
+	CONTEXT_VUID         = 33,
+	CONTEXT_VEUID        = 34,
+	CONTEXT_VSUID        = 35,
+	CONTEXT_VGID         = 36,
+	CONTEXT_VEGID        = 37,
+	CONTEXT_VSGID        = 38,
 };
 
 /*
@@ -254,6 +266,18 @@ const struct ctx_opts {
 	{ "pid_ns", CONTEXT_PID_NS },
 	{ "user_ns", CONTEXT_USER_NS },
 	{ "uts_ns", CONTEXT_UTS_NS },
+	{ "uid", CONTEXT_UID },
+	{ "euid", CONTEXT_EUID },
+	{ "suid", CONTEXT_SUID },
+	{ "gid", CONTEXT_GID },
+	{ "egid", CONTEXT_EGID },
+	{ "sgid", CONTEXT_SGID },
+	{ "vuid", CONTEXT_VUID },
+	{ "veuid", CONTEXT_VEUID },
+	{ "vsuid", CONTEXT_VSUID },
+	{ "vgid", CONTEXT_VGID },
+	{ "vegid", CONTEXT_VEGID },
+	{ "vsgid", CONTEXT_VSGID },
 
 	/* Perf options */
 
