@@ -596,7 +596,7 @@ int mi_lttng_pid_tracker_open(struct mi_writer *writer);
  * Returns zero if the element's value could be written.
  * Negative values indicate an error.
  */
-int mi_lttng_pids_open(struct mi_writer *writer);
+int mi_lttng_proc_ids_open(struct mi_writer *writer);
 
 /*
  * Machine interface: open a processes element.
@@ -623,7 +623,7 @@ int mi_lttng_processes_open(struct mi_writer *writer);
  * Returns zero if the element's value could be written.
  * Negative values indicate an error.
  */
-int mi_lttng_process(struct mi_writer *writer, pid_t pid , const char *name,
+int mi_lttng_process(struct mi_writer *writer, pid_t pid, const char *name,
 		int is_open);
 
 /*
@@ -642,8 +642,8 @@ int mi_lttng_process(struct mi_writer *writer, pid_t pid , const char *name,
  * Returns zero if the element's value could be written.
  * Negative values indicate an error.
  */
-int mi_lttng_pid(struct mi_writer *writer, pid_t pid , const char *name,
-		int is_open);
+int mi_lttng_proc_id(struct mi_writer *writer, pid_t pid, uint64_t pid_ns_inode,
+		const char *name, int is_open);
 /*
  * Machine interface: open a targets element.
  *

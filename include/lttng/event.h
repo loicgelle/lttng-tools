@@ -243,6 +243,14 @@ struct lttng_event_function_attr {
 };
 
 /*
+ * Process identifier
+ */
+struct proc_id {
+	uint64_t pid_ns_inode;
+	pid_t pid;
+};
+
+/*
  * Generic lttng event
  *
  * The structures should be initialized to zero before use.
@@ -266,31 +274,31 @@ struct lttng_event {
 	int32_t enabled;	/* Does not apply: -1 */
 
 	/* Offset 272 */
-	pid_t pid;
+	struct proc_id proc_id;
 
-	/* Offset 276 */
+	/* Offset ??? */
 	unsigned char filter;	/* filter enabled ? */
 
-	/* Offset 277 */
+	/* Offset ??? */
 	unsigned char exclusion; /* exclusions added ? */
 
-	/* Offset 278 */
+	/* Offset ??? */
 	char padding2[2];
 
-	/* Offset 280 */
+	/* Offset ??? */
 	/* Event flag, from 2.6 and above. */
 	enum lttng_event_flag flags;
 
-	/* Offset 284 */
+	/* Offset ??? */
 	char padding[4];
 
-	/* Offset 288 */
+	/* Offset ??? */
 	union {
 		uint64_t padding;
 		void *ptr;
 	} extended;
 
-	/* Offset 296 */
+	/* Offset ??? */
 	/* Per event type configuration */
 	union {
 		struct lttng_event_probe_attr probe;

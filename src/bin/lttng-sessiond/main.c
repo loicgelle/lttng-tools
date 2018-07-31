@@ -1886,9 +1886,10 @@ static void *thread_dispatch_ust_registration(void *data)
 			ust_cmd = caa_container_of(node, struct ust_command, node);
 
 			DBG("Dispatching UST registration pid:%d ppid:%d uid:%d"
-					" gid:%d sock:%d name:%s (version %d.%d)",
+					" gid:%d pid_ns:%lu sock:%d name:%s (version %d.%d)",
 					ust_cmd->reg_msg.pid, ust_cmd->reg_msg.ppid,
 					ust_cmd->reg_msg.uid, ust_cmd->reg_msg.gid,
+					ust_cmd->reg_msg.pid_ns_inode,
 					ust_cmd->sock, ust_cmd->reg_msg.name,
 					ust_cmd->reg_msg.major, ust_cmd->reg_msg.minor);
 
@@ -2245,9 +2246,10 @@ static void *thread_registration_apps(void *data)
 					sock = -1;
 
 					DBG("UST registration received with pid:%d ppid:%d uid:%d"
-							" gid:%d sock:%d name:%s (version %d.%d)",
+							" gid:%d pid_ns:%lu sock:%d name:%s (version %d.%d)",
 							ust_cmd->reg_msg.pid, ust_cmd->reg_msg.ppid,
 							ust_cmd->reg_msg.uid, ust_cmd->reg_msg.gid,
+							ust_cmd->reg_msg.pid_ns_inode,
 							ust_cmd->sock, ust_cmd->reg_msg.name,
 							ust_cmd->reg_msg.major, ust_cmd->reg_msg.minor);
 

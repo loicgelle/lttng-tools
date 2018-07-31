@@ -73,6 +73,7 @@ struct ust_register_msg {
 	uint32_t uint32_t_alignment;
 	uint32_t uint64_t_alignment;
 	uint32_t long_alignment;
+	ino_t pid_ns_inode;
 	int byte_order;		/* BIG_ENDIAN or LITTLE_ENDIAN */
 	char name[LTTNG_UST_ABI_PROCNAME_LEN];
 };
@@ -244,6 +245,7 @@ struct ust_app {
 	pid_t ppid;
 	uid_t uid;           /* User ID that owns the apps */
 	gid_t gid;           /* Group ID that owns the apps */
+	ino_t pid_ns_inode;  /* PID namespace */
 
 	/* App ABI */
 	uint32_t bits_per_long;
@@ -265,7 +267,8 @@ struct ust_app {
 	/* Type of buffer this application uses. */
 	enum lttng_buffer_type buffer_type;
 	struct lttng_ht *sessions;
-	struct lttng_ht_node_ulong pid_n;
+	struct lttng_ht_node_two_u64 pid_n; /* App is identified by its pid and
+										   its PID namespace */
 	struct lttng_ht_node_ulong sock_n;
 	struct lttng_ht_node_ulong notify_sock_n;
 	/*
@@ -331,7 +334,7 @@ void ust_app_global_update_all(struct ltt_ust_session *usess);
 
 void ust_app_clean_list(void);
 int ust_app_ht_alloc(void);
-struct ust_app *ust_app_find_by_pid(pid_t pid);
+struct ust_app *ust_app_find_by_proc_id(pid_t pid, uint64_t pid_ns_inode);
 struct ust_app_stream *ust_app_alloc_stream(void);
 int ust_app_recv_registration(int sock, struct ust_register_msg *msg);
 int ust_app_recv_notify(int sock);
@@ -557,7 +560,7 @@ struct ust_app *ust_app_find_by_sock(int sock)
 	return NULL;
 }
 static inline
-struct ust_app *ust_app_find_by_pid(pid_t pid)
+struct ust_app *ust_app_find_by_proc_id(pid_t pid, uint64_t pid_ns_inode)
 {
 	return NULL;
 }

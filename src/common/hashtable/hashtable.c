@@ -457,6 +457,32 @@ struct lttng_ht_node_u64 *lttng_ht_add_replace_u64(struct lttng_ht *ht,
 }
 
 /*
+ * Add replace two uint64 to hashtable.
+ */
+LTTNG_HIDDEN
+struct lttng_ht_node_two_u64 *lttng_ht_add_replace_two_u64(struct lttng_ht *ht,
+		struct lttng_ht_node_two_u64 *node)
+{
+	struct cds_lfht_node *node_ptr;
+	assert(ht);
+	assert(ht->ht);
+	assert(node);
+
+	/* RCU read lock protects from ABA. */
+	rcu_read_lock();
+	node_ptr = cds_lfht_add_replace(ht->ht,
+			ht->hash_fct((void *) &node->key, lttng_ht_seed), ht->match_fct,
+			(void *) &node->key, &node->node);
+	rcu_read_unlock();
+	if (!node_ptr) {
+		return NULL;
+	} else {
+		return caa_container_of(node_ptr, struct lttng_ht_node_two_u64, node);
+	}
+	assert(node_ptr == &node->node);
+}
+
+/*
  * Delete node from hashtable.
  */
 LTTNG_HIDDEN

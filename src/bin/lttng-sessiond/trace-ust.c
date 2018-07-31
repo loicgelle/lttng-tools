@@ -22,6 +22,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <inttypes.h>
+#include <sys/stat.h>
 
 #include <common/common.h>
 #include <common/defaults.h>
@@ -858,6 +859,8 @@ int trace_ust_pid_tracker_lookup(struct ltt_ust_session *session, int pid)
 int trace_ust_track_pid(struct ltt_ust_session *session, int pid)
 {
 	int retval = LTTNG_OK;
+	struct stat stat_buf;
+	uint64_t pid_ns_inode = 0;
 
 	if (pid == -1) {
 		/* Track all pids: destroy tracker if exists. */
@@ -893,7 +896,12 @@ int trace_ust_track_pid(struct ltt_ust_session *session, int pid)
 				goto end;
 			}
 			/* Add session to application */
-			app = ust_app_find_by_pid(pid);
+			/* Here, we suppose that the process belongs to the same PID namespace as sessiond */
+			/* get inode number for pid namespace */
+			if (stat("/proc/self/ns/pid", &stat_buf) >= 0) {
+				pid_ns_inode = stat_buf.st_ino;
+			}
+			app = ust_app_find_by_proc_id(pid, pid_ns_inode);
 			if (app) {
 				ust_app_global_update(session, app);
 			}
@@ -909,6 +917,8 @@ end:
 int trace_ust_untrack_pid(struct ltt_ust_session *session, int pid)
 {
 	int retval = LTTNG_OK;
+	struct stat stat_buf;
+	uint64_t pid_ns_inode = 0;
 
 	if (pid == -1) {
 		/* Create empty tracker, replace old tracker. */
@@ -942,7 +952,12 @@ int trace_ust_untrack_pid(struct ltt_ust_session *session, int pid)
 			goto end;
 		}
 		/* Remove session from application. */
-		app = ust_app_find_by_pid(pid);
+		/* Here, we suppose that the process belongs to the same PIDnamespace as sessiond */
+		/* get inode number for pid namespace */
+		if (stat("/proc/self/ns/pid", &stat_buf) >= 0) {
+			pid_ns_inode = stat_buf.st_ino;
+		}
+		app = ust_app_find_by_proc_id(pid, pid_ns_inode);
 		if (app) {
 			ust_app_global_update(session, app);
 		}

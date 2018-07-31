@@ -82,7 +82,7 @@ static struct poptOption long_options[] = {
  * On success, return an allocated string pointer to the proc cmdline.
  * On error, return NULL.
  */
-static char *get_cmdline_by_pid(pid_t pid)
+static char *get_cmdline_by_proc_id(pid_t pid, uint64_t pid_ns)
 {
 	int ret;
 	FILE *fp = NULL;
@@ -390,8 +390,9 @@ static int mi_list_agent_ust_events(struct lttng_event *events, int count,
 {
 	int ret, i;
 	pid_t cur_pid = 0;
+	uint64_t cur_pid_ns = 0;
 	char *cmdline = NULL;
-	int pid_element_open = 0;
+	int proc_id_element_open = 0;
 
 	/* Open domains element */
 	ret = mi_lttng_domains_open(writer);
@@ -406,32 +407,34 @@ static int mi_list_agent_ust_events(struct lttng_event *events, int count,
 	}
 
 	/* Open pids element element */
-	ret = mi_lttng_pids_open(writer);
+	ret = mi_lttng_proc_ids_open(writer);
 	if (ret) {
 		goto end;
 	}
 
 	for (i = 0; i < count; i++) {
-		if (cur_pid != events[i].pid) {
-			if (pid_element_open) {
+		if (cur_pid != events[i].proc_id.pid ||
+				cur_pid_ns != events[i].proc_id.pid_ns_inode) {
+			if (proc_id_element_open) {
 				/* Close the previous events and pid element */
 				ret = mi_lttng_close_multi_element(writer, 2);
 				if (ret) {
 					goto end;
 				}
-				pid_element_open = 0;
+				proc_id_element_open = 0;
 			}
 
-			cur_pid = events[i].pid;
-			cmdline = get_cmdline_by_pid(cur_pid);
+			cur_pid = events[i].proc_id.pid;
+			cur_pid_ns = events[i].proc_id.pid_ns_inode;
+			cmdline = get_cmdline_by_proc_id(cur_pid, cur_pid_ns);
 			if (!cmdline) {
 				ret = CMD_ERROR;
 				goto end;
 			}
 
-			if (!pid_element_open) {
+			if (!proc_id_element_open) {
 				/* Open and write a pid element */
-				ret = mi_lttng_pid(writer, cur_pid, cmdline, 1);
+				ret = mi_lttng_proc_id(writer, cur_pid, cur_pid_ns, cmdline, 1);
 				if (ret) {
 					goto error;
 				}
@@ -442,7 +445,7 @@ static int mi_list_agent_ust_events(struct lttng_event *events, int count,
 					goto error;
 				}
 
-				pid_element_open = 1;
+				proc_id_element_open = 1;
 			}
 			free(cmdline);
 		}
@@ -476,6 +479,7 @@ static int list_agent_events(void)
 	struct lttng_handle *handle = NULL;
 	struct lttng_event *event_list = NULL;
 	pid_t cur_pid = 0;
+	uint64_t cur_pid_ns = 0;
 	char *cmdline = NULL;
 	const char *agent_domain_str;
 
@@ -527,14 +531,16 @@ static int list_agent_events(void)
 		}
 
 		for (i = 0; i < size; i++) {
-			if (cur_pid != event_list[i].pid) {
-				cur_pid = event_list[i].pid;
-				cmdline = get_cmdline_by_pid(cur_pid);
+			if (cur_pid != event_list[i].proc_id.pid
+					|| cur_pid_ns != event_list[i].proc_id.pid_ns_inode) {
+				cur_pid = event_list[i].proc_id.pid;
+				cur_pid_ns = event_list[i].proc_id.pid_ns_inode;
+				cmdline = get_cmdline_by_proc_id(cur_pid, cur_pid_ns);
 				if (cmdline == NULL) {
 					ret = CMD_ERROR;
 					goto error;
 				}
-				MSG("\nPID: %d - Name: %s", cur_pid, cmdline);
+				MSG("\nPID: %d - PID_NS: %lu - Name: %s", cur_pid, cur_pid_ns, cmdline);
 				free(cmdline);
 			}
 			MSG("%s- %s", indent6, event_list[i].name);
@@ -560,6 +566,7 @@ static int list_ust_events(void)
 	struct lttng_handle *handle;
 	struct lttng_event *event_list = NULL;
 	pid_t cur_pid = 0;
+	uint64_t cur_pid_ns = 0;
 	char *cmdline = NULL;
 
 	memset(&domain, 0, sizeof(domain));
@@ -593,14 +600,16 @@ static int list_ust_events(void)
 		}
 
 		for (i = 0; i < size; i++) {
-			if (cur_pid != event_list[i].pid) {
-				cur_pid = event_list[i].pid;
-				cmdline = get_cmdline_by_pid(cur_pid);
+			if (cur_pid != event_list[i].proc_id.pid ||
+					cur_pid_ns != event_list[i].proc_id.pid_ns_inode) {
+				cur_pid = event_list[i].proc_id.pid;
+				cur_pid_ns = event_list[i].proc_id.pid_ns_inode;
+				cmdline = get_cmdline_by_proc_id(cur_pid, cur_pid_ns);
 				if (cmdline == NULL) {
 					ret = CMD_ERROR;
 					goto error;
 				}
-				MSG("\nPID: %d - Name: %s", cur_pid, cmdline);
+				MSG("\nPID: %d - PID_NS: %lu - Name: %s", cur_pid, cur_pid_ns, cmdline);
 				free(cmdline);
 			}
 			print_events(&event_list[i]);
@@ -625,6 +634,7 @@ static int mi_list_ust_event_fields(struct lttng_event_field *fields, int count,
 {
 	int ret, i;
 	pid_t cur_pid = 0;
+	uint64_t cur_pid_ns = 0;
 	char *cmdline = NULL;
 	int pid_element_open = 0;
 	int event_element_open = 0;
@@ -645,13 +655,14 @@ static int mi_list_ust_event_fields(struct lttng_event_field *fields, int count,
 	}
 
 	/* Open pids element */
-	ret = mi_lttng_pids_open(writer);
+	ret = mi_lttng_proc_ids_open(writer);
 	if (ret) {
 		goto end;
 	}
 
 	for (i = 0; i < count; i++) {
-		if (cur_pid != fields[i].event.pid) {
+		if (cur_pid != fields[i].event.proc_id.pid || 
+				cur_pid_ns != fields[i].event.proc_id.pid_ns_inode) {
 			if (pid_element_open) {
 				if (event_element_open) {
 					/* Close the previous field element and event. */
@@ -669,11 +680,12 @@ static int mi_list_ust_event_fields(struct lttng_event_field *fields, int count,
 				pid_element_open = 0;
 			}
 
-			cur_pid = fields[i].event.pid;
-			cmdline = get_cmdline_by_pid(cur_pid);
+			cur_pid_ns = fields[i].event.proc_id.pid;
+			cur_pid_ns = fields[i].event.proc_id.pid_ns_inode;
+			cmdline = get_cmdline_by_proc_id(cur_pid, cur_pid_ns);
 			if (!pid_element_open) {
 				/* Open and write a pid element */
-				ret = mi_lttng_pid(writer, cur_pid, cmdline, 1);
+				ret = mi_lttng_proc_id(writer, cur_pid, cur_pid_ns, cmdline, 1);
 				if (ret) {
 					goto error;
 				}
@@ -746,6 +758,7 @@ static int list_ust_event_fields(void)
 	struct lttng_handle *handle;
 	struct lttng_event_field *event_field_list;
 	pid_t cur_pid = 0;
+	uint64_t cur_pid_ns = 0;
 	char *cmdline = NULL;
 
 	struct lttng_event cur_event;
@@ -786,14 +799,16 @@ static int list_ust_event_fields(void)
 		}
 
 		for (i = 0; i < size; i++) {
-			if (cur_pid != event_field_list[i].event.pid) {
-				cur_pid = event_field_list[i].event.pid;
-				cmdline = get_cmdline_by_pid(cur_pid);
+			if (cur_pid != event_field_list[i].event.proc_id.pid ||
+					cur_pid_ns != event_field_list[i].event.proc_id.pid_ns_inode) {
+				cur_pid = event_field_list[i].event.proc_id.pid;
+				cur_pid_ns = event_field_list[i].event.proc_id.pid_ns_inode;
+				cmdline = get_cmdline_by_proc_id(cur_pid, cur_pid_ns);
 				if (cmdline == NULL) {
 					ret = CMD_ERROR;
 					goto error;
 				}
-				MSG("\nPID: %d - Name: %s", cur_pid, cmdline);
+				MSG("\nPID: %d - PID_NS: %lu - Name: %s", cur_pid, cur_pid_ns, cmdline);
 				free(cmdline);
 				/* Wipe current event since we are about to print a new PID. */
 				memset(&cur_event, 0, sizeof(cur_event));

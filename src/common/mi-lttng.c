@@ -96,8 +96,9 @@ const char * const mi_lttng_element_event_fields = "event_fields";
 /* String related to lttng_event_perf_counter_ctx */
 const char * const mi_lttng_element_perf_counter_context = "perf";
 
-/* Strings related to pid */
+/* Strings related to process identification */
 const char * const mi_lttng_element_pid_id = "id";
+const char * const mi_lttng_element_pid_ns = "pid_ns";
 
 /* Strings related to save command */
 const char * const mi_lttng_element_save = "save";
@@ -1317,7 +1318,7 @@ end:
 }
 
 LTTNG_HIDDEN
-int mi_lttng_pids_open(struct mi_writer *writer)
+int mi_lttng_proc_ids_open(struct mi_writer *writer)
 {
 	return mi_lttng_writer_open_element(writer, config_element_pids);
 }
@@ -1327,8 +1328,8 @@ int mi_lttng_pids_open(struct mi_writer *writer)
  * mi api bump. The use of process element break the mi api.
  */
 LTTNG_HIDDEN
-int mi_lttng_pid(struct mi_writer *writer, pid_t pid , const char *name,
-		int is_open)
+int mi_lttng_proc_id(struct mi_writer *writer, pid_t pid , uint64_t pid_ns_inode,
+		const char *name, int is_open)
 {
 	int ret;
 
@@ -1341,6 +1342,13 @@ int mi_lttng_pid(struct mi_writer *writer, pid_t pid , const char *name,
 	/* Writing pid number */
 	ret = mi_lttng_writer_write_element_signed_int(writer,
 			mi_lttng_element_pid_id, (int)pid);
+	if (ret) {
+		goto end;
+	}
+
+	/* Writing pid ns inode number */
+	ret = mi_lttng_writer_write_element_unsigned_int(writer,
+			mi_lttng_element_pid_ns, pid_ns_inode);
 	if (ret) {
 		goto end;
 	}

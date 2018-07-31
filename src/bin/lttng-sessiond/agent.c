@@ -314,8 +314,8 @@ static ssize_t list_events(struct agent_app *app, struct lttng_event **events)
 	assert(app->sock);
 	assert(events);
 
-	DBG2("Agent listing events for app pid: %d and socket %d", app->pid,
-			app->sock->fd);
+	DBG2("Agent listing events for app pid: %d, pid_ns: %lu and socket %d",
+			app->proc_id.pid, app->proc_id.pid_ns_inode, app->sock->fd);
 
 	ret = send_header(app->sock, 0, AGENT_CMD_LIST, 0);
 	if (ret < 0) {
@@ -365,7 +365,8 @@ static ssize_t list_events(struct agent_app *app, struct lttng_event **events)
 			ret = LTTNG_ERR_INVALID;
 			goto error;
 		}
-		tmp_events[i].pid = app->pid;
+		tmp_events[i].proc_id.pid = app->proc_id.pid;
+		tmp_events[i].proc_id.pid_ns_inode = app->proc_id.pid_ns_inode;
 		tmp_events[i].enabled = -1;
 		len = strlen(reply->payload + offset) + 1;
 	}
@@ -404,8 +405,8 @@ static int enable_event(struct agent_app *app, struct agent_event *event)
 	assert(app->sock);
 	assert(event);
 
-	DBG2("Agent enabling event %s for app pid: %d and socket %d", event->name,
-			app->pid, app->sock->fd);
+	DBG2("Agent enabling event %s for app pid: %d, pid_ns: %lu and socket %d",
+			event->name, app->proc_id.pid, app->proc_id.pid_ns_inode, app->sock->fd);
 
 	/*
 	 * Calculate the payload's size, which is the fixed-size struct followed
@@ -519,10 +520,10 @@ static int app_context_op(struct agent_app *app,
 	assert(cmd == AGENT_CMD_APP_CTX_ENABLE ||
 			cmd == AGENT_CMD_APP_CTX_DISABLE);
 
-	DBG2("Agent %s application %s:%s for app pid: %d and socket %d",
+	DBG2("Agent %s application %s:%s for app pid: %d, pid_ns: %lu and socket %d",
 			cmd == AGENT_CMD_APP_CTX_ENABLE ? "enabling" : "disabling",
 			ctx->provider_name, ctx->ctx_name,
-			app->pid, app->sock->fd);
+			app->proc_id.pid, app->proc_id.pid_ns_inode, app->sock->fd);
 
 	/*
 	 * Calculate the payload's size, which consists of the size (u32, BE)
@@ -600,8 +601,8 @@ static int disable_event(struct agent_app *app, struct agent_event *event)
 	assert(app->sock);
 	assert(event);
 
-	DBG2("Agent disabling event %s for app pid: %d and socket %d", event->name,
-			app->pid, app->sock->fd);
+	DBG2("Agent disabling event %s for app pid: %d, pid_ns: %lu and socket %d",
+			event->name, app->proc_id.pid, app->proc_id.pid_ns_inode, app->sock->fd);
 
 	data_size = sizeof(msg);
 	memset(&msg, 0, sizeof(msg));
@@ -942,12 +943,12 @@ error:
 }
 
 /*
- * Create a agent app object using the given PID.
+ * Create a agent app object using the given PID and PID namespace inode.
  *
  * Return newly allocated object or else NULL on error.
  */
-struct agent_app *agent_create_app(pid_t pid, enum lttng_domain_type domain,
-		struct lttcomm_sock *sock)
+struct agent_app *agent_create_app(pid_t pid, uint64_t pid_ns_inode,
+		enum lttng_domain_type domain, struct lttcomm_sock *sock)
 {
 	struct agent_app *app;
 
@@ -959,7 +960,8 @@ struct agent_app *agent_create_app(pid_t pid, enum lttng_domain_type domain,
 		goto error;
 	}
 
-	app->pid = pid;
+	app->proc_id.pid = pid;
+	app->proc_id.pid_ns_inode = pid_ns_inode;
 	app->domain = domain;
 	app->sock = sock;
 	lttng_ht_node_init_ulong(&app->node, (unsigned long) app->sock->fd);
@@ -990,7 +992,8 @@ struct agent_app *agent_find_app_by_sock(int sock)
 	}
 	app = caa_container_of(node, struct agent_app, node);
 
-	DBG3("Agent app pid %d found by sock %d.", app->pid, sock);
+	DBG3("Agent app pid %d, pid_ns: %lu found by sock %d.", app->proc_id.pid,
+			app->proc_id.pid_ns_inode, sock);
 	return app;
 
 error:
@@ -1005,7 +1008,8 @@ void agent_add_app(struct agent_app *app)
 {
 	assert(app);
 
-	DBG3("Agent adding app sock: %d and pid: %d to ht", app->sock->fd, app->pid);
+	DBG3("Agent adding app sock: %d, pid: %d and pid_ns: %lu to ht", app->sock->fd,
+			app->proc_id.pid, app->proc_id.pid_ns_inode);
 	lttng_ht_add_unique_ulong(agent_apps_ht_by_sock, &app->node);
 }
 
@@ -1021,7 +1025,8 @@ void agent_delete_app(struct agent_app *app)
 
 	assert(app);
 
-	DBG3("Agent deleting app pid: %d and sock: %d", app->pid, app->sock->fd);
+	DBG3("Agent deleting app pid: %d, pid_ns: %lu and sock: %d", app->proc_id.pid,
+			app->proc_id.pid_ns_inode, app->sock->fd);
 
 	iter.iter.node = &app->node.node;
 	ret = lttng_ht_del(agent_apps_ht_by_sock, &iter);
@@ -1439,8 +1444,8 @@ void agent_update(struct agent *agt, int sock)
 
 		ret = enable_event(app, event);
 		if (ret != LTTNG_OK) {
-			DBG2("Agent update unable to enable event %s on app pid: %d sock %d",
-					event->name, app->pid, app->sock->fd);
+			DBG2("Agent update unable to enable event %s on app pid: %d pid_ns: %lu sock %d",
+					event->name, app->proc_id.pid, app->proc_id.pid_ns_inode, app->sock->fd);
 			/* Let's try the others here and don't assume the app is dead. */
 			continue;
 		}
@@ -1449,9 +1454,9 @@ void agent_update(struct agent *agt, int sock)
 	cds_list_for_each_entry_rcu(ctx, &agt->app_ctx_list, list_node) {
 		ret = app_context_op(app, ctx, AGENT_CMD_APP_CTX_ENABLE);
 		if (ret != LTTNG_OK) {
-			DBG2("Agent update unable to add application context %s:%s on app pid: %d sock %d",
+			DBG2("Agent update unable to add application context %s:%s on app pid: %d pid_ns: %lu sock %d",
 					ctx->provider_name, ctx->ctx_name,
-					app->pid, app->sock->fd);
+					app->proc_id.pid, app->proc_id.pid_ns_inode, app->sock->fd);
 			continue;
 		}
 	}

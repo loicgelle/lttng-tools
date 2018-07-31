@@ -49,6 +49,7 @@ struct agent_register_msg {
 	/* This maps to a lttng_domain_type. */
 	uint32_t domain;
 	uint32_t pid;
+	uint64_t pid_ns_inode;
 	uint32_t major_version;
 	uint32_t minor_version;
 };
@@ -60,9 +61,12 @@ struct agent_register_msg {
  */
 struct agent_app {
 	/*
-	 * PID sent during registration of an agent application.
+	 * Proc ID sent during registration of an agent application.
 	 */
-	pid_t pid;
+	union {
+		pid_t pid;
+		uint64_t pid_ns_inode;
+	} proc_id;
 
 	/* Domain of the application. */
 	enum lttng_domain_type domain;
@@ -158,8 +162,8 @@ int agent_enable_context(struct lttng_event_context *ctx,
 int agent_add_context(struct lttng_event_context *ctx, struct agent *agt);
 
 /* Agent app API. */
-struct agent_app *agent_create_app(pid_t pid, enum lttng_domain_type domain,
-		struct lttcomm_sock *sock);
+struct agent_app *agent_create_app(pid_t pid, uint64_t pid_ns_inode,
+		enum lttng_domain_type domain, struct lttcomm_sock *sock);
 void agent_add_app(struct agent_app *app);
 void agent_delete_app(struct agent_app *app);
 struct agent_app *agent_find_app_by_sock(int sock);

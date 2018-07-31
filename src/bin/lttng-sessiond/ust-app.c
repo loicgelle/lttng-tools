@@ -937,12 +937,13 @@ void delete_ust_app(struct ust_app *app)
 static
 void delete_ust_app_rcu(struct rcu_head *head)
 {
-	struct lttng_ht_node_ulong *node =
-		caa_container_of(head, struct lttng_ht_node_ulong, head);
+	struct lttng_ht_node_two_u64 *node =
+		caa_container_of(head, struct lttng_ht_node_two_u64, head);
 	struct ust_app *app =
 		caa_container_of(node, struct ust_app, pid_n);
 
-	DBG3("Call RCU deleting app PID %d", app->pid);
+	DBG3("Call RCU deleting app PID %d PID_NS %lu", (pid_t) app->pid_n.key.key1,
+			app->pid_n.key.key2);
 	delete_ust_app(app);
 }
 
@@ -3338,20 +3339,22 @@ error:
  * Return ust app pointer or NULL if not found. RCU read side lock MUST be
  * acquired before calling this function.
  */
-struct ust_app *ust_app_find_by_pid(pid_t pid)
+struct ust_app *ust_app_find_by_proc_id(pid_t pid, uint64_t pid_ns_inode)
 {
 	struct ust_app *app = NULL;
-	struct lttng_ht_node_ulong *node;
+	struct lttng_ht_node_two_u64 *node;
 	struct lttng_ht_iter iter;
 
-	lttng_ht_lookup(ust_app_ht, (void *)((unsigned long) pid), &iter);
-	node = lttng_ht_iter_get_node_ulong(&iter);
+	struct lttng_ht_two_u64 key = {pid, pid_ns_inode};
+
+	lttng_ht_lookup(ust_app_ht, (void *)(&key), &iter);
+	node = lttng_ht_iter_get_node_two_u64(&iter);
 	if (node == NULL) {
-		DBG2("UST app no found with pid %d", pid);
+		DBG2("UST app no found with pid %d and pid ns %lu", pid, pid_ns_inode);
 		goto error;
 	}
 
-	DBG2("Found UST app by pid %d", pid);
+	DBG2("Found UST app by pid %d and pid ns %lu", pid, pid_ns_inode);
 
 	app = caa_container_of(node, struct ust_app, pid_n);
 
@@ -3422,7 +3425,9 @@ struct ust_app *ust_app_create(struct ust_register_msg *msg, int sock)
 	lta->compatible = 1;
 
 	lta->pid = msg->pid;
-	lttng_ht_node_init_ulong(&lta->pid_n, (unsigned long) lta->pid);
+	lta->pid_ns_inode = msg->pid_ns_inode;
+	lttng_ht_node_init_two_u64(&lta->pid_n, (uint64_t) lta->pid,
+			(uint64_t) lta->pid_ns_inode);
 	lta->sock = sock;
 	pthread_mutex_init(&lta->sock_lock, NULL);
 	lttng_ht_node_init_ulong(&lta->sock_n, (unsigned long) lta->sock);
@@ -3446,7 +3451,7 @@ void ust_app_add(struct ust_app *app)
 	 * On a re-registration, we want to kick out the previous registration of
 	 * that pid
 	 */
-	lttng_ht_add_replace_ulong(ust_app_ht, &app->pid_n);
+	lttng_ht_add_replace_two_u64(ust_app_ht, &app->pid_n);
 
 	/*
 	 * The socket _should_ be unique until _we_ call close. So, a add_unique
@@ -3459,10 +3464,10 @@ void ust_app_add(struct ust_app *app)
 	lttng_ht_node_init_ulong(&app->notify_sock_n, app->notify_sock);
 	lttng_ht_add_unique_ulong(ust_app_ht_by_notify_sock, &app->notify_sock_n);
 
-	DBG("App registered with pid:%d ppid:%d uid:%d gid:%d sock:%d name:%s "
+	DBG("App registered with pid:%d ppid:%d uid:%d gid:%d pid_ns:%lu sock:%d name:%s "
 			"notify_sock:%d (version %d.%d)", app->pid, app->ppid, app->uid,
-			app->gid, app->sock, app->name, app->notify_sock, app->v_major,
-			app->v_minor);
+			app->gid, app->pid_ns_inode, app->sock, app->name, app->notify_sock,
+			app->v_major, app->v_minor);
 
 	rcu_read_unlock();
 }
@@ -3721,7 +3726,8 @@ int ust_app_list_events(struct lttng_event **events)
 			memcpy(tmp_event[count].name, uiter.name, LTTNG_UST_SYM_NAME_LEN);
 			tmp_event[count].loglevel = uiter.loglevel;
 			tmp_event[count].type = (enum lttng_event_type) LTTNG_UST_TRACEPOINT;
-			tmp_event[count].pid = app->pid;
+			tmp_event[count].proc_id.pid = app->pid;
+			tmp_event[count].proc_id.pid_ns_inode = app->pid_ns_inode;
 			tmp_event[count].enabled = -1;
 			count++;
 		}
@@ -3858,7 +3864,8 @@ int ust_app_list_event_fields(struct lttng_event_field **fields)
 			memcpy(tmp_event[count].event.name, uiter.event_name, LTTNG_UST_SYM_NAME_LEN);
 			tmp_event[count].event.loglevel = uiter.loglevel;
 			tmp_event[count].event.type = LTTNG_EVENT_TRACEPOINT;
-			tmp_event[count].event.pid = app->pid;
+			tmp_event[count].event.proc_id.pid = app->pid;
+			tmp_event[count].event.proc_id.pid_ns_inode = app->pid_ns_inode;
 			tmp_event[count].event.enabled = -1;
 			count++;
 		}
@@ -5241,10 +5248,11 @@ int ust_app_add_ctx_channel_glb(struct ltt_ust_session *usess,
 }
 
 /*
- * Enable event for a channel from a UST session for a specific PID.
+ * Enable event for a channel from a UST session for a specific PID and PID ns.
  */
-int ust_app_enable_event_pid(struct ltt_ust_session *usess,
-		struct ltt_ust_channel *uchan, struct ltt_ust_event *uevent, pid_t pid)
+int ust_app_enable_event_proc_id(struct ltt_ust_session *usess,
+		struct ltt_ust_channel *uchan, struct ltt_ust_event *uevent, pid_t pid,
+		uint64_t pid_ns_inode)
 {
 	int ret = 0;
 	struct lttng_ht_iter iter;
@@ -5254,13 +5262,14 @@ int ust_app_enable_event_pid(struct ltt_ust_session *usess,
 	struct ust_app_channel *ua_chan;
 	struct ust_app_event *ua_event;
 
-	DBG("UST app enabling event %s for PID %d", uevent->attr.name, pid);
+	DBG("UST app enabling event %s for PID %d PID_NS %lu", uevent->attr.name, pid,
+			pid_ns_inode);
 
 	rcu_read_lock();
 
-	app = ust_app_find_by_pid(pid);
+	app = ust_app_find_by_proc_id(pid, pid_ns_inode);
 	if (app == NULL) {
-		ERR("UST app enable event per PID %d not found", pid);
+		ERR("UST app enable event per PID %d PID_NS %lu not found", pid, pid_ns_inode);
 		ret = -1;
 		goto end;
 	}
@@ -5322,6 +5331,7 @@ int ust_app_recv_registration(int sock, struct ust_register_msg *msg)
 {
 	int ret;
 	uint32_t pid, ppid, uid, gid;
+	ino_t pid_ns_inode;
 
 	assert(msg);
 
@@ -5333,6 +5343,7 @@ int ust_app_recv_registration(int sock, struct ust_register_msg *msg)
 			&msg->uint32_t_alignment,
 			&msg->uint64_t_alignment,
 			&msg->long_alignment,
+			&pid_ns_inode,
 			&msg->byte_order,
 			msg->name);
 	if (ret < 0) {
@@ -5357,6 +5368,7 @@ int ust_app_recv_registration(int sock, struct ust_register_msg *msg)
 	msg->ppid = (pid_t) ppid;
 	msg->uid = (uid_t) uid;
 	msg->gid = (gid_t) gid;
+	msg->pid_ns_inode = (ino_t) pid_ns_inode;
 
 error:
 	return ret;

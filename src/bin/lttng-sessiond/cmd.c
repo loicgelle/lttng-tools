@@ -1523,7 +1523,8 @@ int cmd_disable_event(struct ltt_session *session,
 
 	/* Error out on unhandled search criteria */
 	if (event->loglevel_type || event->loglevel != -1 || event->enabled
-			|| event->pid || event->filter || event->exclusion) {
+			|| event->proc_id.pid || event->proc_id.pid_ns_inode || event->filter
+			|| event->exclusion) {
 		ret = LTTNG_ERR_UNK;
 		goto error;
 	}

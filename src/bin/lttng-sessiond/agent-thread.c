@@ -200,6 +200,7 @@ static int handle_registration(struct lttcomm_sock *reg_sock,
 {
 	int ret;
 	pid_t pid;
+	uint64_t pid_ns_inode;
 	uint32_t major_version, minor_version;
 	ssize_t size;
 	enum lttng_domain_type domain;
@@ -222,6 +223,7 @@ static int handle_registration(struct lttcomm_sock *reg_sock,
 	}
 	domain = be32toh(msg.domain);
 	pid = be32toh(msg.pid);
+	pid_ns_inode = be64toh(msg.pid_ns_inode);
 	major_version = be32toh(msg.major_version);
 	minor_version = be32toh(msg.minor_version);
 
@@ -238,7 +240,7 @@ static int handle_registration(struct lttcomm_sock *reg_sock,
 	DBG2("[agent-thread] New registration for pid %d domain %d on socket %d",
 			pid, domain, new_sock->fd);
 
-	app = agent_create_app(pid, domain, new_sock);
+	app = agent_create_app(pid, pid_ns_inode, domain, new_sock);
 	if (!app) {
 		ret = -ENOMEM;
 		goto error_socket;
